@@ -305,11 +305,21 @@ function Dashboard({ token, user, onLogout }) {
           defaultFacultyEmail: smtpConfig.defaultFacultyEmail
         })
       });
-      const data = await res.json();
+
+      let data = {};
+      const cType = res.headers.get('content-type') || '';
+      if (cType.includes('application/json')) {
+        data = await res.json();
+      } else {
+        if (!res.ok) {
+          throw new Error(`Server is initializing / redeploying (${res.status}). Please wait 15 seconds and try again.`);
+        }
+      }
+
       if (!res.ok) {
         throw new Error(data.error || 'Failed to save settings');
       }
-      setSmtpFeedback({ type: 'success', message: data.message });
+      setSmtpFeedback({ type: 'success', message: data.message || 'Settings saved successfully!' });
       fetchSmtpConfig();
     } catch (err) {
       setSmtpFeedback({ type: 'error', message: err.message });
@@ -330,11 +340,21 @@ function Dashboard({ token, user, onLogout }) {
           statusType: 'HOD Approved'
         })
       });
-      const data = await res.json();
+
+      let data = {};
+      const cType = res.headers.get('content-type') || '';
+      if (cType.includes('application/json')) {
+        data = await res.json();
+      } else {
+        if (!res.ok) {
+          throw new Error(`Server is initializing / redeploying (${res.status}). Please wait 15 seconds and try again.`);
+        }
+      }
+
       if (data.success) {
         setSmtpFeedback({ type: 'success', message: data.message });
       } else {
-        setSmtpFeedback({ type: 'error', message: data.message || 'Email dispatch failed' });
+        setSmtpFeedback({ type: 'error', message: data.message || data.error || 'Email dispatch failed' });
       }
       fetchData();
     } catch (err) {
