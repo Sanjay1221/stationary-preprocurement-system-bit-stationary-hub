@@ -147,24 +147,11 @@ function createMailTransporter() {
   const emailPass = (process.env.EMAIL_PASS || '').trim().replace(/\s+/g, '');
 
   if (emailUser && emailPass) {
-    if (emailUser.endsWith('@gmail.com') || emailUser.endsWith('@googlemail.com')) {
-      return nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-          user: emailUser,
-          pass: emailPass
-        }
-      });
-    }
-
-    const emailHost = (process.env.EMAIL_HOST || 'smtp.gmail.com').trim();
     const emailPort = parseInt(process.env.EMAIL_PORT, 10) || 587;
-    const isSecure = process.env.EMAIL_SECURE !== undefined 
-      ? (process.env.EMAIL_SECURE === 'true') 
-      : (emailPort === 465);
+    const isSecure = emailPort === 465;
 
     return nodemailer.createTransport({
-      host: emailHost,
+      host: (process.env.EMAIL_HOST || 'smtp.gmail.com').trim(),
       port: emailPort,
       secure: isSecure,
       auth: {
@@ -173,7 +160,10 @@ function createMailTransporter() {
       },
       tls: {
         rejectUnauthorized: false
-      }
+      },
+      connectionTimeout: 15000,
+      greetingTimeout: 10000,
+      socketTimeout: 20000
     });
   }
   return null;
@@ -659,7 +649,8 @@ async function sendIndentNotificationEmail({
       status: deliveryStatus,
       messageId: mailResult ? mailResult.messageId : null,
       previewUrl,
-      subject
+      subject,
+      error: mailResult ? mailResult.error : null
     };
   } catch (err) {
     console.error('[EMAIL DISPATCH SAFE HANDLER] Error caught gracefully:', err.message);
@@ -1697,15 +1688,19 @@ app.post('/api/notifications/test-email', async (req, res) => {
     });
 
     const isLiveSent = result && result.status === 'SENT_SMTP';
+    const failureMsg = (result && result.error)
+      ? `❌ SMTP Error: ${result.error}. (Please verify your Google 16-character App Password)`
+      : `⚠️ Notification logged in database. Live email delivery is inactive because EMAIL_USER / EMAIL_PASS in .env are not configured or failed SMTP authentication.`;
 
     res.json({
       success: isLiveSent,
       message: isLiveSent 
         ? `✅ Real email successfully sent to ${targetRecipient}! Please check your inbox / spam folder.`
-        : `⚠️ Notification logged in database. Live email delivery is inactive because EMAIL_USER / EMAIL_PASS in .env are not configured or failed SMTP authentication.`,
+        : failureMsg,
       statusType,
       deliveryStatus: result ? result.status : 'LOGGED_OFFLINE',
       targetEmail: targetRecipient,
+      error: result ? result.error : null,
       result
     });
   } catch (error) {
