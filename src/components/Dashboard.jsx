@@ -2253,10 +2253,10 @@ function Dashboard({ token, user, onLogout }) {
 
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">
-                  Google 16-Character App Password (EMAIL_PASS)
+                  Google App Password (Optional)
                   {smtpConfig.hasPassword && (
                     <span className="text-[10px] text-emerald-600 font-normal ml-2">
-                      (Currently set: {smtpConfig.maskedPassword})
+                      (Configured: {smtpConfig.maskedPassword})
                     </span>
                   )}
                 </label>
@@ -2264,7 +2264,7 @@ function Dashboard({ token, user, onLogout }) {
                   type="password"
                   value={smtpConfig.emailPass}
                   onChange={(e) => setSmtpConfig({ ...smtpConfig, emailPass: e.target.value })}
-                  placeholder={smtpConfig.hasPassword ? 'Enter new password to change' : 'e.g. abcd efgh ijkl mnop'}
+                  placeholder="Optional: leave blank to use in-app letterhead vouchers"
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 outline-none focus:border-[#0b193c] text-xs font-mono"
                 />
               </div>

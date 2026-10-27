@@ -66,11 +66,11 @@ function App() {
     }
   };
 
-  // Traditional manual login
+  // Traditional manual login (no password required)
   const handleManualLogin = async (e) => {
     if (e) e.preventDefault();
-    if (!username || !password) {
-      setError('Please enter both username and password');
+    if (!username) {
+      setError('Please enter username or role');
       return;
     }
     setError('');
@@ -82,7 +82,7 @@ function App() {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ username: username.trim(), password: password.trim() })
+        body: JSON.stringify({ username: username.trim() })
       });
       const data = await res.json();
       if (!res.ok) {
@@ -253,22 +253,11 @@ function App() {
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">Password</label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="password (8 characters)"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 outline-none text-xs font-mono"
-                />
-              </div>
-
               <button
                 type="submit"
                 className="w-full py-2 bg-[#0b193c] hover:bg-[#122556] text-white rounded-xl font-semibold text-xs transition-all uppercase tracking-wider cursor-pointer"
               >
-                Sign In With Password
+                Sign In (No Password Required)
               </button>
             </form>
           )}
