@@ -3,9 +3,11 @@ services:
     name: bit-stationary-system
     env: node
     plan: free
-    buildCommand: npm install && npm run build
+    buildCommand: npm install && npm rebuild sqlite3 --build-from-source && npm run build
     startCommand: npm start
     envVars:
+      - key: npm_config_build_from_source
+        value: "true"
       - key: NODE_ENV
         value: production
       - key: JWT_SECRET
