@@ -7,6 +7,10 @@ const http = require('http');
 const crypto = require('crypto');
 const fs = require('fs');
 const nodemailer = require('nodemailer');
+const dns = require('dns');
+if (dns.setDefaultResultOrder) {
+  dns.setDefaultResultOrder('ipv4first');
+}
 
 // Load environment variables from .env
 const envPath = path.join(__dirname, '.env');
@@ -154,6 +158,7 @@ function createMailTransporter() {
       host: (process.env.EMAIL_HOST || 'smtp.gmail.com').trim(),
       port: emailPort,
       secure: isSecure,
+      family: 4,
       auth: {
         user: emailUser,
         pass: emailPass
@@ -1616,7 +1621,7 @@ app.get('/api/notifications/smtp-settings', (req, res) => {
     emailUser: emailUser || '',
     defaultFacultyEmail: configuredDefault,
     emailHost: (process.env.EMAIL_HOST || 'smtp.gmail.com').trim(),
-    emailPort: parseInt(process.env.EMAIL_PORT, 10) || 465,
+    emailPort: parseInt(process.env.EMAIL_PORT, 10) || 587,
     hasPassword: !!emailPass,
     maskedPassword: emailPass ? '••••••••••••' + emailPass.slice(-4) : '',
     status: (emailUser && emailPass) ? 'READY' : 'UNCONFIGURED'
@@ -1633,7 +1638,7 @@ app.post('/api/notifications/smtp-settings', async (req, res) => {
     EMAIL_USER: emailUser.trim(),
     DEFAULT_FACULTY_EMAIL: (defaultFacultyEmail || DEFAULT_FACULTY_EMAIL).trim(),
     EMAIL_HOST: (emailHost || 'smtp.gmail.com').trim(),
-    EMAIL_PORT: emailPort ? parseInt(emailPort, 10) : 465
+    EMAIL_PORT: emailPort ? parseInt(emailPort, 10) : 587
   };
 
   if (emailPass && emailPass.trim()) {

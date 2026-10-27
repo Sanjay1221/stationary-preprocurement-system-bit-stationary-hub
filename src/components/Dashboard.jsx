@@ -302,6 +302,8 @@ function Dashboard({ token, user, onLogout }) {
         body: JSON.stringify({
           emailUser: smtpConfig.emailUser,
           emailPass: smtpConfig.emailPass,
+          emailPort: 587,
+          emailHost: 'smtp.gmail.com',
           defaultFacultyEmail: smtpConfig.defaultFacultyEmail
         })
       });
