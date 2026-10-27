@@ -145,13 +145,24 @@ function createMailTransporter() {
   reloadEnv();
   const emailUser = (process.env.EMAIL_USER || '').trim();
   const emailPass = (process.env.EMAIL_PASS || '').trim().replace(/\s+/g, '');
-  const emailHost = (process.env.EMAIL_HOST || 'smtp.gmail.com').trim();
-  const emailPort = parseInt(process.env.EMAIL_PORT, 10) || 465;
-  const isSecure = process.env.EMAIL_SECURE !== undefined 
-    ? (process.env.EMAIL_SECURE === 'true') 
-    : (emailPort === 465);
 
   if (emailUser && emailPass) {
+    if (emailUser.endsWith('@gmail.com') || emailUser.endsWith('@googlemail.com')) {
+      return nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: emailUser,
+          pass: emailPass
+        }
+      });
+    }
+
+    const emailHost = (process.env.EMAIL_HOST || 'smtp.gmail.com').trim();
+    const emailPort = parseInt(process.env.EMAIL_PORT, 10) || 587;
+    const isSecure = process.env.EMAIL_SECURE !== undefined 
+      ? (process.env.EMAIL_SECURE === 'true') 
+      : (emailPort === 465);
+
     return nodemailer.createTransport({
       host: emailHost,
       port: emailPort,
@@ -1644,16 +1655,7 @@ app.post('/api/notifications/smtp-settings', async (req, res) => {
   const activePass = process.env.EMAIL_PASS;
   if (updates.EMAIL_USER && activePass) {
     try {
-      const transporter = nodemailer.createTransport({
-        host: updates.EMAIL_HOST,
-        port: updates.EMAIL_PORT,
-        secure: updates.EMAIL_PORT === 465,
-        auth: {
-          user: updates.EMAIL_USER,
-          pass: activePass
-        },
-        tls: { rejectUnauthorized: false }
-      });
+      const transporter = createMailTransporter();
       await transporter.verify();
       return res.json({ 
         success: true, 
