@@ -1,16 +1,29 @@
-# React + Vite
+# stationary-preprocurement-system-bit-stationary-hub
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+A digital platform designed for educational campuses to streamline stationary requests, automate multi-level approvals, manage vendor pre-procurement, and track departmental inventory efficiently.
 
-Currently, two official plugins are available:
+## Core Features
+- **Role-Based Access Control**: Tailored workflows for Faculty (Requester), HOD (Approver), Storekeeper (Fulfillment), and Procurement.
+- **End-to-End Indent Lifecycle**: Digital requisitions, HOD approvals, stock verification, and physical store dispatch vouchers.
+- **Automated Pre-Procurement Engine**: Automated reorder calculations and RFQ batch creation when stock hits minimum thresholds.
+- **Institutional Email Pipeline**: Automated Bannari Amman Institute of Technology letterhead emails for indents and critical stock alerts.
+- **Immutable Audit Telemetry**: Full transaction and inventory movement ledger stored in SQLite.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Quick Setup
+1. **Install Dependencies:**
+   ```bash
+   npm install
+   ```
 
-## React Compiler
+2. **Configure Environment:**
+   Copy `.env.example` to `.env`:
+   ```bash
+   cp .env.example .env
+   ```
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+3. **Start Development Server:**
+   ```bash
+   npm run dev
+   ```
+   - Web Portal: [http://localhost:5173](http://localhost:5173)
+   - Backend API: [http://localhost:5000](http://localhost:5000)
