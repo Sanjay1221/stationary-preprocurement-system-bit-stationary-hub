@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: bit-stationary-system
+    env: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DEFAULT_FACULTY_EMAIL
+        value: sanjayc.cb23@bitsathy.ac.in
+      - key: EMAIL_USER
+        sync: false
+      - key: EMAIL_PASS
+        sync: false
