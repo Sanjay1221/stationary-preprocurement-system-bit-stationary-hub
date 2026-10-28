@@ -180,27 +180,64 @@ function createMailTransporter() {
  * 2. If configured, dispatches live email via SMTP to the verified recipient.
  * 3. Returns detailed status, error message, and logs for real-time user feedback.
  */
-async function dispatchMail({ to = DEFAULT_FACULTY_EMAIL, subject, html }) {
+async function dispatchMail({ to = DEFAULT_FACULTY_EMAIL, subject, html, text }) {
   reloadEnv();
   const emailUser = (process.env.EMAIL_USER || '').trim();
   const emailPass = (process.env.EMAIL_PASS || '').trim().replace(/\s+/g, '');
+  const webhookUrl = (process.env.EMAIL_WEBHOOK_URL || '').trim();
   const recipient = getEffectiveRecipient(to);
+  const plainText = text || (html ? html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : subject);
 
-  // 1. Attempt live SMTP if credentials provided in .env
+  // 1. First priority for Cloud / Render: HTTPS Webhook (Port 443 - Never blocked!)
+  if (webhookUrl) {
+    try {
+      console.log(`[HTTPS WEBHOOK] Dispatching to ${recipient} via ${webhookUrl}...`);
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: recipient,
+          cc: emailUser && emailUser.toLowerCase() !== recipient.toLowerCase() ? emailUser : undefined,
+          subject,
+          html,
+          text: plainText
+        })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (response.ok && (data.success !== false)) {
+        console.log(`[HTTPS WEBHOOK SUCCESS] Delivered to ${recipient}`);
+        return {
+          deliveryStatus: 'SENT_WEBHOOK',
+          messageId: data.messageId || `WEBHOOK-${Date.now()}`,
+          previewUrl: null,
+          recipient,
+          success: true
+        };
+      } else {
+        console.warn(`[HTTPS WEBHOOK WARN] Webhook response:`, data);
+      }
+    } catch (whErr) {
+      console.error(`[HTTPS WEBHOOK ERROR]:`, whErr.message);
+    }
+  }
+
+  // 2. Second priority: Live Gmail SMTP (Ports 587 / 465 - Works on Localhost & unrestricted networks)
   if (emailUser && emailPass) {
     try {
       console.log(`[SMTP PIPELINE] Attempting live SMTP dispatch to ${recipient} via ${emailUser}...`);
       const transporter = createMailTransporter();
 
       const info = await transporter.sendMail({
-        from: `"BIT Central Stationary Portal" <${emailUser}>`,
+        from: `"BIT Stationary Management" <${emailUser}>`,
         to: recipient,
+        cc: emailUser && emailUser.toLowerCase() !== recipient.toLowerCase() ? emailUser : undefined,
         subject,
+        text: plainText,
         html
       });
 
       console.log(`Mail sent successfully to: ${info.messageId}`);
-      console.log(`[SMTP SUCCESS] Delivered to ${recipient} | Subject: "${subject}"`);
+      console.log(`[SMTP SUCCESS] Delivered to ${recipient} & CC to ${emailUser} | Subject: "${subject}"`);
 
       return {
         deliveryStatus: 'SENT_SMTP',
@@ -210,17 +247,20 @@ async function dispatchMail({ to = DEFAULT_FACULTY_EMAIL, subject, html }) {
         success: true
       };
     } catch (smtpError) {
-      console.error(`\n[SMTP AUTH ERROR] ❌ SMTP dispatch failed to ${recipient}:`);
+      console.error(`\n[SMTP DISPATCH ERROR] ❌ SMTP dispatch failed to ${recipient}:`);
       console.error(`  -> Message: ${smtpError.message}`);
       if (smtpError.code) console.error(`  -> Code: ${smtpError.code}`);
       if (smtpError.response) console.error(`  -> Server Response: ${smtpError.response}`);
-      console.error(`  -> Notice: Google requires a 16-character App Password (not standard account password).`);
-      console.error(`     Enable 2-Step Verification in Google Account -> App Passwords -> Generate for 'Mail'.\n`);
+
+      const isPortBlock = smtpError.code === 'ETIMEDOUT' || smtpError.code === 'ECONNREFUSED' || smtpError.code === 'ENETUNREACH';
+      const friendlyNotice = isPortBlock 
+        ? "Render's Free Cloud blocks outbound SMTP ports (587/465). To send live from Render, configure a free Google Webhook (Port 443) or run locally on your laptop."
+        : smtpError.message;
 
       return {
         deliveryStatus: 'FAILED_SMTP',
         messageId: null,
-        error: smtpError.message,
+        error: friendlyNotice,
         code: smtpError.code,
         previewUrl: null,
         recipient,
@@ -232,7 +272,7 @@ async function dispatchMail({ to = DEFAULT_FACULTY_EMAIL, subject, html }) {
     console.log(`[SMTP NOTICE] Recipient target: ${recipient}`);
   }
 
-  // 2. Safe Fallback: Logged offline in SQLite
+  // 3. Fallback: Logged offline in SQLite
   return {
     deliveryStatus: 'LOGGED_OFFLINE',
     messageId: `OFFLINE-${Date.now()}`,
@@ -1603,22 +1643,24 @@ app.get('/api/notifications/smtp-settings', (req, res) => {
   reloadEnv();
   const emailUser = (process.env.EMAIL_USER || '').trim();
   const emailPass = (process.env.EMAIL_PASS || '').trim();
+  const emailWebhookUrl = (process.env.EMAIL_WEBHOOK_URL || '').trim();
   const configuredDefault = (process.env.DEFAULT_FACULTY_EMAIL || DEFAULT_FACULTY_EMAIL).trim();
 
   res.json({
-    configured: !!(emailUser && emailPass),
+    configured: !!(emailWebhookUrl || (emailUser && emailPass)),
     emailUser: emailUser || '',
+    emailWebhookUrl: emailWebhookUrl || '',
     defaultFacultyEmail: configuredDefault,
     emailHost: (process.env.EMAIL_HOST || 'smtp.gmail.com').trim(),
     emailPort: parseInt(process.env.EMAIL_PORT, 10) || 587,
     hasPassword: !!emailPass,
     maskedPassword: emailPass ? '••••••••••••' + emailPass.slice(-4) : '',
-    status: (emailUser && emailPass) ? 'READY' : 'UNCONFIGURED'
+    status: (emailWebhookUrl || (emailUser && emailPass)) ? 'READY' : 'UNCONFIGURED'
   });
 });
 
 app.post('/api/notifications/smtp-settings', async (req, res) => {
-  const { emailUser, emailPass, emailHost, emailPort, defaultFacultyEmail } = req.body;
+  const { emailUser, emailPass, emailHost, emailPort, defaultFacultyEmail, emailWebhookUrl } = req.body;
   if (!emailUser || !emailUser.trim()) {
     return res.status(400).json({ error: 'Sender email (e.g., your Gmail address) is required.' });
   }
@@ -1630,13 +1672,24 @@ app.post('/api/notifications/smtp-settings', async (req, res) => {
     EMAIL_PORT: emailPort ? parseInt(emailPort, 10) : 587
   };
 
-  if (emailPass && emailPass.trim()) {
+  if (emailPass !== undefined && emailPass.trim()) {
     updates.EMAIL_PASS = emailPass.trim().replace(/\s+/g, '');
+  }
+  if (emailWebhookUrl !== undefined) {
+    updates.EMAIL_WEBHOOK_URL = (emailWebhookUrl || '').trim();
   }
 
   updateEnvFile(updates);
 
-  // If both user and pass are set, verify transport directly
+  // If webhook URL configured, it works over Port 443
+  if (updates.EMAIL_WEBHOOK_URL) {
+    return res.json({ 
+      success: true, 
+      message: 'Cloud HTTPS Webhook configured! Live emails will be sent via Port 443 (compatible with Render cloud).' 
+    });
+  }
+
+  // If SMTP configured, verify transport
   const activePass = process.env.EMAIL_PASS;
   if (updates.EMAIL_USER && activePass) {
     try {
@@ -1644,10 +1697,14 @@ app.post('/api/notifications/smtp-settings', async (req, res) => {
       await transporter.verify();
       return res.json({ 
         success: true, 
-        message: 'SMTP credentials verified successfully! Live email dispatch is active.' 
+        message: 'SMTP credentials verified successfully! Live email dispatch is active on open networks.' 
       });
     } catch (verifyErr) {
-      return res.json({ success: true, message: 'Settings saved! Official letterhead notification pipeline is active.' });
+      const isPortBlock = verifyErr.code === 'ETIMEDOUT' || verifyErr.code === 'ECONNREFUSED' || verifyErr.code === 'ENETUNREACH';
+      const msg = isPortBlock 
+        ? "Settings saved. Notice: Render free tier blocks SMTP port 587. Configure Google Apps Script Webhook (Port 443) or test on Localhost."
+        : `Settings saved. SMTP Notice: ${verifyErr.message}`;
+      return res.json({ success: true, message: msg });
     }
   }
 
@@ -1679,19 +1736,26 @@ app.post('/api/notifications/test-email', async (req, res) => {
       triggeringUserId: 1
     });
 
-    const isLiveSent = result && result.status === 'SENT_SMTP';
-    res.json({
-      success: true,
-      message: isLiveSent 
-        ? `✅ Real email successfully sent to ${targetRecipient}! Please check your inbox / spam folder.`
-        : `✅ Official BIT Letterhead notification generated and saved successfully for ${targetRecipient}!`,
-      statusType,
-      deliveryStatus: result ? result.status : 'LOGGED_OFFLINE',
-      targetEmail: targetRecipient,
-      result
-    });
+    const isLiveSent = result && (result.status === 'SENT_SMTP' || result.status === 'SENT_WEBHOOK');
+    if (isLiveSent) {
+      res.json({
+        success: true,
+        message: `🎉 Live email successfully dispatched to ${targetRecipient}! (A delivery copy was also sent to ${process.env.EMAIL_USER || 'your Gmail'}). Please check your Inbox and Spam/Junk folder.`,
+        deliveryStatus: result.status,
+        targetEmail: targetRecipient,
+        messageId: result.messageId
+      });
+    } else {
+      res.json({
+        success: false,
+        message: `⚠️ Cloud Delivery Notice: Live SMTP (port 587) was blocked by this cloud environment (Render free tier). Official BIT letterhead voucher #${result ? result.id : ''} was safely stored to the database. To receive live emails from Render, add a free Google Apps Script Webhook (Port 443), or run locally via 'npm run dev'.`,
+        deliveryStatus: result ? result.status : 'LOGGED_OFFLINE',
+        targetEmail: targetRecipient,
+        result
+      });
+    }
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 

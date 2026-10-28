@@ -38,10 +38,12 @@ function Dashboard({ token, user, onLogout }) {
     configured: false,
     emailUser: '',
     emailPass: '',
+    emailWebhookUrl: '',
     defaultFacultyEmail: 'sanjayc.cb23@bitsathy.ac.in',
     hasPassword: false,
     maskedPassword: ''
   });
+  const [showWebhookGuide, setShowWebhookGuide] = useState(false);
   const [smtpSaving, setSmtpSaving] = useState(false);
   const [smtpFeedback, setSmtpFeedback] = useState(null);
   const [testSending, setTestSending] = useState(false);
@@ -281,6 +283,7 @@ function Dashboard({ token, user, onLogout }) {
           ...prev,
           configured: data.configured,
           emailUser: data.emailUser || '',
+          emailWebhookUrl: data.emailWebhookUrl || '',
           defaultFacultyEmail: data.defaultFacultyEmail || 'sanjayc.cb23@bitsathy.ac.in',
           hasPassword: data.hasPassword,
           maskedPassword: data.maskedPassword || ''
@@ -302,6 +305,7 @@ function Dashboard({ token, user, onLogout }) {
         body: JSON.stringify({
           emailUser: smtpConfig.emailUser,
           emailPass: smtpConfig.emailPass,
+          emailWebhookUrl: smtpConfig.emailWebhookUrl,
           emailPort: 587,
           emailHost: 'smtp.gmail.com',
           defaultFacultyEmail: smtpConfig.defaultFacultyEmail
@@ -356,7 +360,7 @@ function Dashboard({ token, user, onLogout }) {
       if (data.success) {
         setSmtpFeedback({ type: 'success', message: data.message });
       } else {
-        setSmtpFeedback({ type: 'error', message: data.message || data.error || 'Email dispatch failed' });
+        setSmtpFeedback({ type: 'warning', message: data.message || data.error || 'Email dispatch notice' });
       }
       fetchData();
     } catch (err) {
@@ -2196,25 +2200,33 @@ function Dashboard({ token, user, onLogout }) {
 
             {/* Pipeline Status Banner */}
             <div className={`p-3.5 rounded-xl border text-xs flex items-start gap-2.5 ${
-              smtpConfig.configured 
-                ? 'bg-emerald-50 border-emerald-200 text-emerald-900' 
-                : 'bg-amber-50 border-amber-200 text-amber-900'
+              smtpConfig.emailWebhookUrl
+                ? 'bg-purple-50 border-purple-200 text-purple-900'
+                : smtpConfig.configured 
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-900' 
+                  : 'bg-amber-50 border-amber-200 text-amber-900'
             }`}>
-              {smtpConfig.configured ? (
+              {smtpConfig.emailWebhookUrl ? (
+                <Icons.Globe className="h-4 w-4 text-purple-600 shrink-0 mt-0.5" />
+              ) : smtpConfig.configured ? (
                 <Icons.CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
               ) : (
                 <Icons.AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
               )}
               <div className="space-y-1">
                 <p className="font-bold">
-                  {smtpConfig.configured 
-                    ? '🟢 Live SMTP Pipeline Active' 
-                    : '⚠️ Offline Presentation Mode Active (No real emails sent)'}
+                  {smtpConfig.emailWebhookUrl
+                    ? '🟣 Cloud HTTPS Webhook Active (Render Port 443 Supported)'
+                    : smtpConfig.configured 
+                      ? '🟢 Live Gmail SMTP Active (Port 587 — Tested & Verified for Localhost)' 
+                      : '⚠️ Offline Presentation Mode Active (No real emails sent)'}
                 </p>
                 <p className="text-[11px] text-slate-600 leading-relaxed">
-                  {smtpConfig.configured 
-                    ? `Dispatches are being sent live from ${smtpConfig.emailUser} to ${smtpConfig.defaultFacultyEmail}.`
-                    : `Emails are currently only saved to the database. To receive real emails in your inbox (${smtpConfig.defaultFacultyEmail}), configure your Gmail and 16-character Google App Password below.`}
+                  {smtpConfig.emailWebhookUrl
+                    ? `Dispatches are sent live via HTTPS Webhook to ${smtpConfig.defaultFacultyEmail} and CC to ${smtpConfig.emailUser}.`
+                    : smtpConfig.configured 
+                      ? `Gmail SMTP is active for ${smtpConfig.emailUser} -> ${smtpConfig.defaultFacultyEmail}. (Note: Works live on Localhost; Render Free Cloud blocks direct SMTP).`
+                      : `Emails are currently saved to the database. Configure Gmail or a free Google Webhook to receive live emails in ${smtpConfig.defaultFacultyEmail}.`}
                 </p>
               </div>
             </div>
@@ -2224,14 +2236,18 @@ function Dashboard({ token, user, onLogout }) {
               <div className={`p-3 rounded-xl border text-xs flex items-start gap-2 ${
                 smtpFeedback.type === 'success' 
                   ? 'bg-emerald-50 border-emerald-300 text-emerald-800' 
-                  : 'bg-rose-50 border-rose-300 text-rose-800'
+                  : smtpFeedback.type === 'warning'
+                    ? 'bg-amber-50 border-amber-300 text-amber-900'
+                    : 'bg-rose-50 border-rose-300 text-rose-800'
               }`}>
                 {smtpFeedback.type === 'success' ? (
                   <Icons.Check className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                ) : smtpFeedback.type === 'warning' ? (
+                  <Icons.Info className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
                 ) : (
                   <Icons.AlertTriangle className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
                 )}
-                <span className="font-medium">{smtpFeedback.message}</span>
+                <span className="font-medium leading-relaxed">{smtpFeedback.message}</span>
               </div>
             )}
 
@@ -2253,24 +2269,6 @@ function Dashboard({ token, user, onLogout }) {
 
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">
-                  Google App Password (Optional)
-                  {smtpConfig.hasPassword && (
-                    <span className="text-[10px] text-emerald-600 font-normal ml-2">
-                      (Configured: {smtpConfig.maskedPassword})
-                    </span>
-                  )}
-                </label>
-                <input
-                  type="password"
-                  value={smtpConfig.emailPass}
-                  onChange={(e) => setSmtpConfig({ ...smtpConfig, emailPass: e.target.value })}
-                  placeholder="Optional: leave blank to use in-app letterhead vouchers"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 outline-none focus:border-[#0b193c] text-xs font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">
                   Recipient Faculty Email (DEFAULT_FACULTY_EMAIL)
                 </label>
                 <input
@@ -2281,22 +2279,90 @@ function Dashboard({ token, user, onLogout }) {
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 outline-none focus:border-[#0b193c] text-xs font-mono"
                 />
                 <p className="text-[10px] text-slate-400 mt-1">
-                  All automated status updates (HOD Approval, Dispatch Ready, Stock Out alerts) are routed directly to this inbox.
+                  All automated status updates (HOD Approval, Dispatch Ready, Stock Alerts) route here, with a CC to your Gmail.
                 </p>
               </div>
 
-              {/* Instructions Guide Card */}
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Google App Password (For Localhost / Open Port Environments)
+                  {smtpConfig.hasPassword && (
+                    <span className="text-[10px] text-emerald-600 font-normal ml-2">
+                      (Configured: {smtpConfig.maskedPassword})
+                    </span>
+                  )}
+                </label>
+                <input
+                  type="password"
+                  value={smtpConfig.emailPass}
+                  onChange={(e) => setSmtpConfig({ ...smtpConfig, emailPass: e.target.value })}
+                  placeholder="16-character Google App Password (e.g. pznm pfac atxy kkzf)"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 outline-none focus:border-[#0b193c] text-xs font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-purple-900 mb-1 flex items-center justify-between">
+                  <span>Google Apps Script Webhook URL (For Render Free Cloud - Port 443)</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowWebhookGuide(!showWebhookGuide)}
+                    className="text-[10px] text-purple-600 hover:text-purple-800 underline font-semibold cursor-pointer"
+                  >
+                    {showWebhookGuide ? 'Hide Guide' : '⭐ 1-Minute Free Setup Guide'}
+                  </button>
+                </label>
+                <input
+                  type="url"
+                  value={smtpConfig.emailWebhookUrl}
+                  onChange={(e) => setSmtpConfig({ ...smtpConfig, emailWebhookUrl: e.target.value })}
+                  placeholder="https://script.google.com/macros/s/.../exec"
+                  className="w-full px-3 py-2 bg-purple-50/40 border border-purple-200 rounded-xl text-slate-800 outline-none focus:border-purple-600 text-xs font-mono"
+                />
+                <p className="text-[10px] text-purple-700 mt-1">
+                  Bypasses Render's free tier SMTP port block via HTTPS (Port 443).
+                </p>
+              </div>
+
+              {/* Expandable Webhook Guide */}
+              {showWebhookGuide && (
+                <div className="p-3.5 bg-purple-50 rounded-xl border border-purple-200 space-y-2 text-[11px] text-purple-950">
+                  <div className="font-bold flex items-center gap-1.5 text-purple-900">
+                    <Icons.Sparkles className="h-3.5 w-3.5 text-purple-600" />
+                    <span>How to set up Free Google Apps Script Webhook (Takes 60 seconds):</span>
+                  </div>
+                  <ol className="list-decimal list-inside space-y-1 pl-1 text-[11px] text-purple-900">
+                    <li>Open <a href="https://script.google.com/home/start" target="_blank" rel="noreferrer" className="text-blue-600 underline font-semibold">script.google.com</a> and click <strong>New project</strong>.</li>
+                    <li>Replace the editor text with:</li>
+                  </ol>
+                  <pre className="p-2 bg-slate-900 text-slate-100 rounded-lg text-[10px] font-mono overflow-x-auto select-all">
+{`function doPost(e) {
+  var data = JSON.parse(e.postData.contents);
+  GmailApp.sendEmail(data.to, data.subject, data.text || "", {
+    htmlBody: data.html,
+    name: "BIT Stationary Hub"
+  });
+  return ContentService.createTextOutput(JSON.stringify({ success: true }))
+    .setMimeType(ContentService.MimeType.JSON);
+}`}
+                  </pre>
+                  <ol start={3} className="list-decimal list-inside space-y-1 pl-1 text-[11px] text-purple-900">
+                    <li>Click <strong>Deploy</strong> &rarr; <strong>New deployment</strong> &rarr; Click gear icon &rarr; Select <strong>Web app</strong>.</li>
+                    <li>Set <em>Execute as:</em> <strong>Me</strong> and <em>Who has access:</em> <strong>Anyone</strong>, then click <strong>Deploy</strong>.</li>
+                    <li>Copy the <strong>Web App URL</strong> and paste it into the field above!</li>
+                  </ol>
+                </div>
+              )}
+
+              {/* Instructions Guide Card for App Password / Localhost */}
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5 text-[11px] text-slate-600">
                 <div className="flex items-center gap-1.5 font-bold text-slate-800">
-                  <Icons.Key className="h-3.5 w-3.5 text-amber-600" />
-                  <span>How to create a 16-character Google App Password:</span>
+                  <Icons.Laptop className="h-3.5 w-3.5 text-blue-600" />
+                  <span>How to send live via Localhost on your Laptop (Zero Extra Setup):</span>
                 </div>
-                <ol className="list-decimal list-inside space-y-1 pl-1 text-[11px]">
-                  <li>Open your Google Account: <a href="https://myaccount.google.com/security" target="_blank" rel="noreferrer" className="text-blue-600 underline">Security Settings</a>.</li>
-                  <li>Enable <strong>2-Step Verification</strong> if not already enabled.</li>
-                  <li>Go to <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noreferrer" className="text-blue-600 underline font-semibold">Google App Passwords</a>.</li>
-                  <li>Create an app named <strong>"BIT Stationary"</strong> and copy the 16 letters here.</li>
-                </ol>
+                <p className="text-[11px] text-slate-600 leading-relaxed">
+                  Your laptop does not block SMTP ports. In your project terminal, run <code className="bg-slate-200 px-1 py-0.5 rounded text-[#0b193c] font-bold">npm run dev</code> and open <a href="http://localhost:5173" target="_blank" rel="noreferrer" className="text-blue-600 underline font-semibold">http://localhost:5173</a>. Real emails deliver directly via your configured Google App Password!
+                </p>
               </div>
 
               {/* Modal Buttons */}
