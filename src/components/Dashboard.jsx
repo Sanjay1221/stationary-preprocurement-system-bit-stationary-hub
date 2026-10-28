@@ -38,7 +38,7 @@ function Dashboard({ token, user, onLogout }) {
     configured: false,
     emailUser: '',
     emailPass: '',
-    emailWebhookUrl: '',
+    emailWebhookUrl: 'https://script.google.com/macros/s/AKfycbzP9M7FHPUYbIqw-qQrxCQJpxULCoebutWrm7R6DkL8jRsR2f2dzkNPKEIVIrlXxVvseA/exec',
     defaultFacultyEmail: 'sanjayc.cb23@bitsathy.ac.in',
     hasPassword: false,
     maskedPassword: ''
@@ -283,7 +283,7 @@ function Dashboard({ token, user, onLogout }) {
           ...prev,
           configured: data.configured,
           emailUser: data.emailUser || '',
-          emailWebhookUrl: data.emailWebhookUrl || '',
+          emailWebhookUrl: data.emailWebhookUrl || 'https://script.google.com/macros/s/AKfycbzP9M7FHPUYbIqw-qQrxCQJpxULCoebutWrm7R6DkL8jRsR2f2dzkNPKEIVIrlXxVvseA/exec',
           defaultFacultyEmail: data.defaultFacultyEmail || 'sanjayc.cb23@bitsathy.ac.in',
           hasPassword: data.hasPassword,
           maskedPassword: data.maskedPassword || ''

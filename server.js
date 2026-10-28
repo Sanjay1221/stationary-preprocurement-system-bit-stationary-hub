@@ -70,6 +70,7 @@ function updateEnvFile(newValues) {
 const PORT = process.env.PORT || 5000;
 const JWT_SECRET = process.env.JWT_SECRET || 'bit-stationary-system-super-secret-key-101';
 const DEFAULT_FACULTY_EMAIL = 'sanjayc.cb23@bitsathy.ac.in';
+const DEFAULT_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbzP9M7FHPUYbIqw-qQrxCQJpxULCoebutWrm7R6DkL8jRsR2f2dzkNPKEIVIrlXxVvseA/exec';
 
 function getEffectiveRecipient(candidateEmail) {
   reloadEnv();
@@ -184,7 +185,7 @@ async function dispatchMail({ to = DEFAULT_FACULTY_EMAIL, subject, html, text })
   reloadEnv();
   const emailUser = (process.env.EMAIL_USER || '').trim();
   const emailPass = (process.env.EMAIL_PASS || '').trim().replace(/\s+/g, '');
-  const webhookUrl = (process.env.EMAIL_WEBHOOK_URL || '').trim();
+  const webhookUrl = (process.env.EMAIL_WEBHOOK_URL || DEFAULT_WEBHOOK_URL).trim();
   const recipient = getEffectiveRecipient(to);
   const plainText = text || (html ? html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : subject);
 
@@ -1643,7 +1644,7 @@ app.get('/api/notifications/smtp-settings', (req, res) => {
   reloadEnv();
   const emailUser = (process.env.EMAIL_USER || '').trim();
   const emailPass = (process.env.EMAIL_PASS || '').trim();
-  const emailWebhookUrl = (process.env.EMAIL_WEBHOOK_URL || '').trim();
+  const emailWebhookUrl = (process.env.EMAIL_WEBHOOK_URL || DEFAULT_WEBHOOK_URL).trim();
   const configuredDefault = (process.env.DEFAULT_FACULTY_EMAIL || DEFAULT_FACULTY_EMAIL).trim();
 
   res.json({
